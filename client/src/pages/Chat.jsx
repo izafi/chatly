@@ -1,47 +1,101 @@
 import { useState } from "react";
+import { MessageCircle } from "lucide-react";
 
 import Sidebar from "../components/Sidebar";
 import ChatHeader from "../components/ChatHeader";
-import MessageBubble from "../components/MessageBubble";
-import MessageInput from "../components/MessageInput";
+
+import { createOrGetConversation } from "../services/conversationService";
 
 const Chat = () => {
   const [selectedUser, setSelectedUser] = useState(null);
+  const [conversation, setConversation] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSelectUser = async (user) => {
+    try {
+      setSelectedUser(user);
+      setConversation(null);
+      setLoading(true);
+
+      const data = await createOrGetConversation(user._id);
+
+      setConversation(data.conversation);
+    } catch (error) {
+      console.error(
+        "CONVERSATION ERROR:",
+        error
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="h-screen bg-[#08090C] flex">
+    <div className="h-screen bg-[#08090C] text-white flex overflow-hidden">
 
       {/* Sidebar */}
-
       <Sidebar
-        onSelectUser={setSelectedUser}
+        onSelectUser={handleSelectUser}
         selectedUser={selectedUser}
       />
 
-
-      {/* Chat Area */}
-
-      <main className="hidden md:flex flex-1 flex-col">
+      {/* Main Chat */}
+      <main className="flex-1 flex flex-col">
 
         {selectedUser ? (
           <>
+            {/* Chat Header */}
             <ChatHeader user={selectedUser} />
 
-            <div className="flex-1">
-              {/* Messages will come here */}
-            </div>
+            {/* Chat Area */}
+            <div className="flex-1 flex items-center justify-center">
 
-            <MessageInput />
+              {loading ? (
+                <p className="text-gray-400">
+                  Opening conversation...
+                </p>
+              ) : conversation ? (
+                <div className="text-center">
+
+                  <MessageCircle
+                    size={48}
+                    className="mx-auto mb-4 text-purple-400"
+                  />
+
+                  <h2 className="text-xl font-semibold">
+                    Conversation Ready
+                  </h2>
+
+                  <p className="text-gray-500 mt-2">
+                    Start chatting with{" "}
+                    {selectedUser.name}
+                  </p>
+
+                  <p className="text-xs text-gray-700 mt-4">
+                    Conversation ID:
+                    <br />
+                    {conversation._id}
+                  </p>
+
+                </div>
+              ) : null}
+
+            </div>
           </>
         ) : (
-
+          /* Welcome Screen */
           <div className="flex-1 flex items-center justify-center">
 
             <div className="text-center">
 
-              <h2 className="text-2xl text-white font-semibold">
-                Welcome to Chatly 💬
-              </h2>
+              <MessageCircle
+                size={64}
+                className="mx-auto mb-5 text-purple-400"
+              />
+
+              <h1 className="text-2xl font-semibold">
+                Welcome to Chatly
+              </h1>
 
               <p className="text-gray-500 mt-2">
                 Select a user to start chatting
@@ -50,11 +104,9 @@ const Chat = () => {
             </div>
 
           </div>
-
         )}
 
       </main>
-
     </div>
   );
 };
