@@ -2,13 +2,13 @@ const mongoose = require("mongoose");
 
 const messageSchema = new mongoose.Schema(
   {
-    sender: {
+    conversation: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Conversation",
       required: true,
     },
 
-    receiver: {
+    sender: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -19,15 +19,13 @@ const messageSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-
-    seen: {
-      type: Boolean,
-      default: false,
-    },
   },
   {
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model("Message", messageSchema);
+module.exports = mongoose.model(
+  "Message",
+  messageSchema
+);
