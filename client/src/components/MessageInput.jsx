@@ -1,41 +1,55 @@
-import {
-  Paperclip,
-  Smile,
-  Send,
-} from "lucide-react";
+import { useState } from "react";
+import { Send } from "lucide-react";
 
-function MessageInput() {
+const MessageInput = ({
+  onSend,
+  disabled = false,
+}) => {
+  const [text, setText] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    if (!text.trim() || disabled) {
+      return;
+    }
+
+    onSend(text.trim());
+
+    setText("");
+  };
+
   return (
-    <div className="p-4 border-t border-white/10 bg-[#0F1117]">
+    <form
+      onSubmit={handleSubmit}
+      className="p-4 border-t border-white/10 bg-[#0C0D12]"
+    >
+      <div className="max-w-4xl mx-auto flex items-center gap-3">
 
-      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={text}
+          onChange={(e) =>
+            setText(e.target.value)
+          }
+          placeholder="Type a message..."
+          disabled={disabled}
+          className="flex-1 bg-[#15161C] border border-white/10 rounded-xl px-4 py-3 outline-none text-white placeholder-gray-500 focus:border-purple-500"
+        />
 
-        <button className="p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl">
-          <Paperclip size={20} />
-        </button>
-
-        <div className="flex-1 relative">
-
-          <input
-            type="text"
-            placeholder="Type a message..."
-            className="w-full bg-[#08090C] border border-white/10 rounded-xl py-3.5 pl-4 pr-12 outline-none focus:border-purple-500"
-          />
-
-          <button className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-white">
-            <Smile size={20} />
-          </button>
-
-        </div>
-
-        <button className="p-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-500 hover:opacity-90 transition">
-          <Send size={19} />
+        <button
+          type="submit"
+          disabled={
+            disabled || !text.trim()
+          }
+          className="w-12 h-12 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition"
+        >
+          <Send size={20} />
         </button>
 
       </div>
-
-    </div>
+    </form>
   );
-}
+};
 
 export default MessageInput;
