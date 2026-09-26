@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
 import { MessageCircle } from "lucide-react";
 
 import Sidebar from "../components/Sidebar";
@@ -12,57 +13,176 @@ import {
 
 import {
   getMessages,
-  sendMessage,
 } from "../services/messageService";
 
+import { useAuth } from "../context/AuthContext";
+
+import {
+  useSocket,
+} from "../context/SocketContext";
+
 const Chat = () => {
-  const [selectedUser, setSelectedUser] = useState(null);
+  const { user } = useAuth();
 
-  const [conversation, setConversation] = useState(null);
+  const {
+    socket,
+    connected,
+  } = useSocket();
 
-  const [messages, setMessages] = useState([]);
+  const [
+    selectedUser,
+    setSelectedUser,
+  ] = useState(null);
 
-  const [loading, setLoading] = useState(false);
+  const [
+    conversation,
+    setConversation,
+  ] = useState(null);
 
-  const [sending, setSending] = useState(false);
+  const [
+    messages,
+    setMessages,
+  ] = useState([]);
 
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
 
-  // ========================================
-  // SELECT USER
-  // ========================================
+  const [
+    sending,
+    setSending,
+  ] = useState(false);
 
-  const handleSelectUser = async (user) => {
+  // =========================
+  // Receive Real-Time Message
+  // =========================
+
+  useEffect(() => {
+    if (!socket) {
+      return;
+    }
+
+    const handleReceiveMessage = (
+      message
+    ) => {
+      console.log(
+        "Real-time message received:",
+        message
+      );
+
+      // Only add message if it
+      // belongs to current conversation
+      if (
+        conversation &&
+        message.conversation ===
+          conversation._id
+      ) {
+        setMessages(
+          (prevMessages) => [
+            ...prevMessages,
+            message,
+          ]
+        );
+      }
+    };
+
+    socket.on(
+      "message:receive",
+      handleReceiveMessage
+    );
+
+    return () => {
+      socket.off(
+        "message:receive",
+        handleReceiveMessage
+      );
+    };
+  }, [
+    socket,
+    conversation,
+  ]);
+
+  // =========================
+  // Message Sent Confirmation
+  // =========================
+
+  useEffect(() => {
+    if (!socket) {
+      return;
+    }
+
+    const handleMessageSent = (
+      message
+    ) => {
+      console.log(
+        "Message sent:",
+        message
+      );
+
+      // Add message to sender UI
+      if (
+        conversation &&
+        message.conversation ===
+          conversation._id
+      ) {
+        setMessages(
+          (prevMessages) => [
+            ...prevMessages,
+            message,
+          ]
+        );
+      }
+
+      setSending(false);
+    };
+
+    socket.on(
+      "message:sent",
+      handleMessageSent
+    );
+
+    return () => {
+      socket.off(
+        "message:sent",
+        handleMessageSent
+      );
+    };
+  }, [
+    socket,
+    conversation,
+  ]);
+
+  // =========================
+  // Select User
+  // =========================
+
+  const handleSelectUser = async (
+    user
+  ) => {
     try {
-      // Set selected user
       setSelectedUser(user);
 
-      // Clear previous conversation
       setConversation(null);
 
-      // Clear previous messages
       setMessages([]);
 
-      // Show loading
       setLoading(true);
 
-
-      // ========================================
-      // CREATE / GET CONVERSATION
-      // ========================================
-
+      // Create/Get Conversation
       const conversationData =
-        await createOrGetConversation(user._id);
+        await createOrGetConversation(
+          user._id
+        );
 
       const currentConversation =
         conversationData.conversation;
 
-      setConversation(currentConversation);
+      setConversation(
+        currentConversation
+      );
 
-
-      // ========================================
-      // GET OLD MESSAGES
-      // ========================================
-
+      // Get old messages
       const messageData =
         await getMessages(
           currentConversation._id
@@ -71,7 +191,6 @@ const Chat = () => {
       setMessages(
         messageData.messages || []
       );
-
     } catch (error) {
       console.error(
         "CHAT LOAD ERROR:",
@@ -79,106 +198,102 @@ const Chat = () => {
       );
 
       setMessages([]);
-      setConversation(null);
 
+      setConversation(null);
     } finally {
       setLoading(false);
     }
   };
 
+  // =========================
+  // Send Message
+  // =========================
 
-  // ========================================
-  // SEND MESSAGE
-  // ========================================
-
-  const handleSendMessage = async (text) => {
+  const handleSendMessage = (
+    text
+  ) => {
     if (
+      !socket ||
+      !connected ||
       !conversation ||
+      !selectedUser ||
       !text.trim()
     ) {
       return;
     }
 
-    try {
-      setSending(true);
+    setSending(true);
 
+    // Current user ID
+    const senderId =
+      user._id || user.id;
 
-      // Send message to backend
-      const data = await sendMessage(
-        conversation._id,
-        text.trim()
-      );
+    // Receiver ID
+    const receiverId =
+      selectedUser._id ||
+      selectedUser.id;
 
+    // Send through Socket.IO
+    socket.emit(
+      "message:send",
+      {
+        conversationId:
+          conversation._id,
 
-      // Add new message to current UI
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        data.message,
-      ]);
+        senderId,
 
-    } catch (error) {
-      console.error(
-        "SEND MESSAGE ERROR:",
-        error
-      );
+        receiverId,
 
-    } finally {
-      setSending(false);
-    }
+        text: text.trim(),
+      }
+    );
   };
-
 
   return (
     <div className="h-screen bg-[#08090C] text-white flex overflow-hidden">
-
-      {/* ========================================
-          SIDEBAR
-      ======================================== */}
+      {/* =========================
+          Sidebar
+      ========================= */}
 
       <Sidebar
-        onSelectUser={handleSelectUser}
-        selectedUser={selectedUser}
+        onSelectUser={
+          handleSelectUser
+        }
+        selectedUser={
+          selectedUser
+        }
       />
 
-
-      {/* ========================================
-          MAIN CHAT
-      ======================================== */}
+      {/* =========================
+          Main Chat
+      ========================= */}
 
       <main className="flex-1 flex flex-col min-w-0">
-
         {selectedUser ? (
           <>
-            {/* ========================================
-                CHAT HEADER
-            ======================================== */}
+            {/* =========================
+                Chat Header
+            ========================= */}
 
             <ChatHeader
               user={selectedUser}
             />
 
-
-            {/* ========================================
-                MESSAGES AREA
-            ======================================== */}
+            {/* =========================
+                Messages
+            ========================= */}
 
             <div className="flex-1 overflow-y-auto p-4">
-
               {loading ? (
-
-                // Loading
                 <div className="h-full flex items-center justify-center">
                   <p className="text-gray-400">
                     Loading messages...
                   </p>
                 </div>
-
-              ) : messages.length === 0 ? (
-
-                // No messages
+              ) : messages.length ===
+                0 ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
-
                     <MessageCircle
                       size={50}
                       className="mx-auto mb-4 text-purple-400"
@@ -189,52 +304,50 @@ const Chat = () => {
                     </h2>
 
                     <p className="text-gray-500 mt-1">
-                      Start a conversation with{" "}
-                      {selectedUser.name}
+                      Start a
+                      conversation
+                      with{" "}
+                      {
+                        selectedUser.name
+                      }
                     </p>
-
                   </div>
                 </div>
-
               ) : (
-
-                // Messages
                 <div className="max-w-4xl mx-auto space-y-3">
-
-                  {messages.map((message) => (
-                    <MessageBubble
-                      key={message._id}
-                      message={message}
-                    />
-                  ))}
-
+                  {messages.map(
+                    (message) => (
+                      <MessageBubble
+                        key={
+                          message._id
+                        }
+                        message={
+                          message
+                        }
+                      />
+                    )
+                  )}
                 </div>
-
               )}
-
             </div>
 
-
-            {/* ========================================
-                MESSAGE INPUT
-            ======================================== */}
+            {/* =========================
+                Message Input
+            ========================= */}
 
             <MessageInput
-              onSend={handleSendMessage}
-              disabled={sending}
+              onSend={
+                handleSendMessage
+              }
+              disabled={
+                sending ||
+                !connected
+              }
             />
-
           </>
         ) : (
-
-          /* ========================================
-             WELCOME SCREEN
-          ======================================== */
-
           <div className="flex-1 flex items-center justify-center">
-
             <div className="text-center">
-
               <MessageCircle
                 size={64}
                 className="mx-auto mb-5 text-purple-400"
@@ -245,15 +358,12 @@ const Chat = () => {
               </h1>
 
               <p className="text-gray-500 mt-2">
-                Select a user to start chatting
+                Select a user to
+                start chatting
               </p>
-
             </div>
-
           </div>
-
         )}
-
       </main>
     </div>
   );

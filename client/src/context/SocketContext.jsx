@@ -37,7 +37,7 @@ export const SocketProvider = ({
     );
 
     // =========================
-    // Create Socket Connection
+    // Create Socket
     // =========================
 
     const newSocket = io(
@@ -48,7 +48,7 @@ export const SocketProvider = ({
     );
 
     // =========================
-    // Socket Connected
+    // Connected
     // =========================
 
     newSocket.on("connect", () => {
@@ -59,17 +59,11 @@ export const SocketProvider = ({
 
       setConnected(true);
 
-      // =========================
-      // Get Current User ID
-      // =========================
-
+      // Get current user ID
       const userId =
         user._id || user.id;
 
-      // =========================
-      // Tell Server User Is Online
-      // =========================
-
+      // Register user
       newSocket.emit(
         "user:online",
         userId
@@ -77,7 +71,7 @@ export const SocketProvider = ({
     });
 
     // =========================
-    // Socket Disconnected
+    // Disconnected
     // =========================
 
     newSocket.on(
@@ -92,7 +86,7 @@ export const SocketProvider = ({
     );
 
     // =========================
-    // Save Socket
+    // Save socket
     // =========================
 
     setSocket(newSocket);
@@ -125,10 +119,6 @@ export const SocketProvider = ({
     </SocketContext.Provider>
   );
 };
-
-// =========================
-// Custom Hook
-// =========================
 
 export const useSocket = () => {
   return useContext(

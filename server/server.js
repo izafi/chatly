@@ -13,10 +13,13 @@ const userRoutes = require("./routes/userRoutes");
 const conversationRoutes = require("./routes/conversationRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 
+const Message = require("./models/Message");
+const Conversation = require("./models/Conversation");
+
 const app = express();
 
 // =========================
-// Database Connection
+// Database
 // =========================
 
 connectDB();
@@ -43,7 +46,7 @@ app.use(
 app.use(cookieParser());
 
 // =========================
-// API Routes
+// Routes
 // =========================
 
 app.use("/api/auth", authRoutes);
@@ -71,13 +74,13 @@ app.get("/", (req, res) => {
 });
 
 // =========================
-// Create HTTP Server
+// HTTP Server
 // =========================
 
 const server = http.createServer(app);
 
 // =========================
-// Socket.IO Server
+// Socket.IO
 // =========================
 
 const io = new Server(server, {
@@ -106,7 +109,7 @@ io.on("connection", (socket) => {
   );
 
   // =========================
-  // User Goes Online
+  // User Online
   // =========================
 
   socket.on("user:online", (userId) => {
@@ -134,7 +137,142 @@ io.on("connection", (socket) => {
   });
 
   // =========================
-  // User Disconnects
+  // REAL-TIME SEND MESSAGE
+  // =========================
+
+  socket.on(
+    "message:send",
+    async (data) => {
+      try {
+        const {
+          conversationId,
+          senderId,
+          text,
+          receiverId,
+        } = data;
+
+        // =========================
+        // Validation
+        // =========================
+
+        if (
+          !conversationId ||
+          !senderId ||
+          !receiverId ||
+          !text?.trim()
+        ) {
+          return;
+        }
+
+        // =========================
+        // Check Conversation
+        // =========================
+
+        const conversation =
+          await Conversation.findById(
+            conversationId
+          );
+
+        if (!conversation) {
+          console.log(
+            "Conversation not found"
+          );
+
+          return;
+        }
+
+        // =========================
+        // Check Sender
+        // =========================
+
+        const isParticipant =
+          conversation.participants.some(
+            (participant) =>
+              participant.toString() ===
+              senderId.toString()
+          );
+
+        if (!isParticipant) {
+          console.log(
+            "Sender is not participant"
+          );
+
+          return;
+        }
+
+        // =========================
+        // Save Message
+        // =========================
+
+        const message =
+          await Message.create({
+            conversation:
+              conversationId,
+
+            sender: senderId,
+
+            text: text.trim(),
+          });
+
+        // =========================
+        // Populate Sender
+        // =========================
+
+        await message.populate(
+          "sender",
+          "-password"
+        );
+
+        console.log(
+          "Message saved:",
+          message.text
+        );
+
+        // =========================
+        // Get Receiver Socket
+        // =========================
+
+        const receiverSocketId =
+          onlineUsers.get(
+            receiverId.toString()
+          );
+
+        // =========================
+        // Send To Receiver
+        // =========================
+
+        if (receiverSocketId) {
+          io.to(
+            receiverSocketId
+          ).emit(
+            "message:receive",
+            message
+          );
+
+          console.log(
+            "Message sent to receiver"
+          );
+        }
+
+        // =========================
+        // Send Back To Sender
+        // =========================
+
+        socket.emit(
+          "message:sent",
+          message
+        );
+      } catch (error) {
+        console.error(
+          "SOCKET MESSAGE ERROR:",
+          error
+        );
+      }
+    }
+  );
+
+  // =========================
+  // Disconnect
   // =========================
 
   socket.on("disconnect", () => {
@@ -143,14 +281,17 @@ io.on("connection", (socket) => {
       socket.id
     );
 
-    // Find the user belonging
-    // to this socket
+    // Find user
     for (
       const [userId, socketId]
       of onlineUsers.entries()
     ) {
-      if (socketId === socket.id) {
-        onlineUsers.delete(userId);
+      if (
+        socketId === socket.id
+      ) {
+        onlineUsers.delete(
+          userId
+        );
 
         console.log(
           "User offline:",
