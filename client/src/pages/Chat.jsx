@@ -22,12 +22,25 @@ import {
 } from "../context/SocketContext";
 
 const Chat = () => {
+  // =========================
+  // Auth
+  // =========================
+
   const { user } = useAuth();
+
+  // =========================
+  // Socket
+  // =========================
 
   const {
     socket,
     connected,
+    onlineUsers,
   } = useSocket();
+
+  // =========================
+  // States
+  // =========================
 
   const [
     selectedUser,
@@ -55,6 +68,25 @@ const Chat = () => {
   ] = useState(false);
 
   // =========================
+  // Selected User ID
+  // =========================
+
+  const selectedUserId =
+    selectedUser?._id ||
+    selectedUser?.id;
+
+  // =========================
+  // Check Selected User Online
+  // =========================
+
+  const isSelectedUserOnline =
+    onlineUsers.some(
+      (onlineUserId) =>
+        String(onlineUserId) ===
+        String(selectedUserId)
+    );
+
+  // =========================
   // Receive Real-Time Message
   // =========================
 
@@ -71,12 +103,15 @@ const Chat = () => {
         message
       );
 
-      // Only add message if it
-      // belongs to current conversation
+      // Make sure conversation exists
+      if (!conversation) {
+        return;
+      }
+
+      // Compare conversation IDs safely
       if (
-        conversation &&
-        message.conversation ===
-          conversation._id
+        String(message.conversation) ===
+        String(conversation._id)
       ) {
         setMessages(
           (prevMessages) => [
@@ -104,7 +139,7 @@ const Chat = () => {
   ]);
 
   // =========================
-  // Message Sent Confirmation
+  // Message Sent
   // =========================
 
   useEffect(() => {
@@ -120,11 +155,14 @@ const Chat = () => {
         message
       );
 
-      // Add message to sender UI
+      if (!conversation) {
+        return;
+      }
+
+      // Check conversation
       if (
-        conversation &&
-        message.conversation ===
-          conversation._id
+        String(message.conversation) ===
+        String(conversation._id)
       ) {
         setMessages(
           (prevMessages) => [
@@ -161,15 +199,22 @@ const Chat = () => {
     user
   ) => {
     try {
+      // Selected user save
       setSelectedUser(user);
 
+      // Old conversation remove
       setConversation(null);
 
+      // Old messages clear
       setMessages([]);
 
+      // Loading start
       setLoading(true);
 
+      // =========================
       // Create/Get Conversation
+      // =========================
+
       const conversationData =
         await createOrGetConversation(
           user._id
@@ -178,11 +223,15 @@ const Chat = () => {
       const currentConversation =
         conversationData.conversation;
 
+      // Save conversation
       setConversation(
         currentConversation
       );
 
-      // Get old messages
+      // =========================
+      // Get Old Messages
+      // =========================
+
       const messageData =
         await getMessages(
           currentConversation._id
@@ -212,28 +261,64 @@ const Chat = () => {
   const handleSendMessage = (
     text
   ) => {
-    if (
-      !socket ||
-      !connected ||
-      !conversation ||
-      !selectedUser ||
-      !text.trim()
-    ) {
+    // Socket check
+    if (!socket) {
+      console.log(
+        "Socket not available"
+      );
+
       return;
     }
 
+    // Connection check
+    if (!connected) {
+      console.log(
+        "Socket is not connected"
+      );
+
+      return;
+    }
+
+    // Conversation check
+    if (!conversation) {
+      return;
+    }
+
+    // Selected user check
+    if (!selectedUser) {
+      return;
+    }
+
+    // Text check
+    if (!text.trim()) {
+      return;
+    }
+
+    // =========================
+    // Sender ID
+    // =========================
+
+    const senderId =
+      user?._id || user?.id;
+
+    // =========================
+    // Receiver ID
+    // =========================
+
+    const receiverId =
+      selectedUser?._id ||
+      selectedUser?.id;
+
+    // =========================
+    // Sending State
+    // =========================
+
     setSending(true);
 
-    // Current user ID
-    const senderId =
-      user._id || user.id;
+    // =========================
+    // Send Through Socket.IO
+    // =========================
 
-    // Receiver ID
-    const receiverId =
-      selectedUser._id ||
-      selectedUser.id;
-
-    // Send through Socket.IO
     socket.emit(
       "message:send",
       {
@@ -248,6 +333,10 @@ const Chat = () => {
       }
     );
   };
+
+  // =========================
+  // JSX
+  // =========================
 
   return (
     <div className="h-screen bg-[#08090C] text-white flex overflow-hidden">
@@ -265,7 +354,7 @@ const Chat = () => {
       />
 
       {/* =========================
-          Main Chat
+          Main Chat Area
       ========================= */}
 
       <main className="flex-1 flex flex-col min-w-0">
@@ -280,11 +369,15 @@ const Chat = () => {
             />
 
             {/* =========================
-                Messages
+                Messages Area
             ========================= */}
 
             <div className="flex-1 overflow-y-auto p-4">
               {loading ? (
+                // =========================
+                // Loading
+                // =========================
+
                 <div className="h-full flex items-center justify-center">
                   <p className="text-gray-400">
                     Loading messages...
@@ -292,6 +385,10 @@ const Chat = () => {
                 </div>
               ) : messages.length ===
                 0 ? (
+                // =========================
+                // No Messages
+                // =========================
+
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
                     <MessageCircle
@@ -314,6 +411,10 @@ const Chat = () => {
                   </div>
                 </div>
               ) : (
+                // =========================
+                // Messages
+                // =========================
+
                 <div className="max-w-4xl mx-auto space-y-3">
                   {messages.map(
                     (message) => (
@@ -346,6 +447,10 @@ const Chat = () => {
             />
           </>
         ) : (
+          // =========================
+          // No User Selected
+          // =========================
+
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <MessageCircle

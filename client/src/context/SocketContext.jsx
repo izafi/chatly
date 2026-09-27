@@ -23,11 +23,10 @@ export const SocketProvider = ({
   const [connected, setConnected] =
     useState(false);
 
-  useEffect(() => {
-    // =========================
-    // User not logged in
-    // =========================
+  const [onlineUsers, setOnlineUsers] =
+    useState([]);
 
+  useEffect(() => {
     if (!user) {
       return;
     }
@@ -35,10 +34,6 @@ export const SocketProvider = ({
     console.log(
       "Connecting to Socket.IO..."
     );
-
-    // =========================
-    // Create Socket
-    // =========================
 
     const newSocket = io(
       "http://localhost:5000",
@@ -48,7 +43,7 @@ export const SocketProvider = ({
     );
 
     // =========================
-    // Connected
+    // CONNECT
     // =========================
 
     newSocket.on("connect", () => {
@@ -59,7 +54,6 @@ export const SocketProvider = ({
 
       setConnected(true);
 
-      // Get current user ID
       const userId =
         user._id || user.id;
 
@@ -71,7 +65,23 @@ export const SocketProvider = ({
     });
 
     // =========================
-    // Disconnected
+    // ONLINE USERS
+    // =========================
+
+    newSocket.on(
+      "users:online",
+      (users) => {
+        console.log(
+          "Online users:",
+          users
+        );
+
+        setOnlineUsers(users);
+      }
+    );
+
+    // =========================
+    // DISCONNECT
     // =========================
 
     newSocket.on(
@@ -86,13 +96,13 @@ export const SocketProvider = ({
     );
 
     // =========================
-    // Save socket
+    // SAVE SOCKET
     // =========================
 
     setSocket(newSocket);
 
     // =========================
-    // Cleanup
+    // CLEANUP
     // =========================
 
     return () => {
@@ -105,6 +115,8 @@ export const SocketProvider = ({
       setSocket(null);
 
       setConnected(false);
+
+      setOnlineUsers([]);
     };
   }, [user]);
 
@@ -113,6 +125,7 @@ export const SocketProvider = ({
       value={{
         socket,
         connected,
+        onlineUsers,
       }}
     >
       {children}
