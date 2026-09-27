@@ -1,6 +1,12 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
-import { MessageCircle } from "lucide-react";
+import {
+  Menu,
+  MessageCircle,
+} from "lucide-react";
 
 import Sidebar from "../components/Sidebar";
 import ChatHeader from "../components/ChatHeader";
@@ -16,31 +22,19 @@ import {
 } from "../services/messageService";
 
 import { useAuth } from "../context/AuthContext";
-
-import {
-  useSocket,
-} from "../context/SocketContext";
+import { useSocket } from "../context/SocketContext";
 
 const Chat = () => {
-  // =========================
-  // Auth
-  // =========================
-
   const { user } = useAuth();
-
-  // =========================
-  // Socket
-  // =========================
 
   const {
     socket,
     connected,
-    onlineUsers,
   } = useSocket();
 
-  // =========================
-  // States
-  // =========================
+  // ==========================================
+  // STATE
+  // ==========================================
 
   const [
     selectedUser,
@@ -67,28 +61,30 @@ const Chat = () => {
     setSending,
   ] = useState(false);
 
-  // =========================
-  // Selected User ID
-  // =========================
+  const [
+    isTyping,
+    setIsTyping,
+  ] = useState(false);
+
+  const [
+    sidebarOpen,
+    setSidebarOpen,
+  ] = useState(false);
+
+  // ==========================================
+  // USER IDS
+  // ==========================================
+
+  const currentUserId =
+    user?._id || user?.id;
 
   const selectedUserId =
     selectedUser?._id ||
     selectedUser?.id;
 
-  // =========================
-  // Check Selected User Online
-  // =========================
-
-  const isSelectedUserOnline =
-    onlineUsers.some(
-      (onlineUserId) =>
-        String(onlineUserId) ===
-        String(selectedUserId)
-    );
-
-  // =========================
-  // Receive Real-Time Message
-  // =========================
+  // ==========================================
+  // RECEIVE MESSAGE
+  // ==========================================
 
   useEffect(() => {
     if (!socket) {
@@ -99,27 +95,39 @@ const Chat = () => {
       message
     ) => {
       console.log(
-        "Real-time message received:",
+        "📩 Message received:",
         message
       );
 
-      // Make sure conversation exists
       if (!conversation) {
         return;
       }
 
-      // Compare conversation IDs safely
       if (
-        String(message.conversation) ===
+        String(message.conversation) !==
         String(conversation._id)
       ) {
-        setMessages(
-          (prevMessages) => [
-            ...prevMessages,
-            message,
-          ]
-        );
+        return;
       }
+
+      setMessages((previous) => {
+        // Duplicate message avoid
+        const alreadyExists =
+          previous.some(
+            (item) =>
+              String(item._id) ===
+              String(message._id)
+          );
+
+        if (alreadyExists) {
+          return previous;
+        }
+
+        return [
+          ...previous,
+          message,
+        ];
+      });
     };
 
     socket.on(
@@ -138,9 +146,9 @@ const Chat = () => {
     conversation,
   ]);
 
-  // =========================
-  // Message Sent
-  // =========================
+  // ==========================================
+  // MESSAGE SENT
+  // ==========================================
 
   useEffect(() => {
     if (!socket) {
@@ -151,25 +159,33 @@ const Chat = () => {
       message
     ) => {
       console.log(
-        "Message sent:",
+        "📤 Message sent:",
         message
       );
 
-      if (!conversation) {
-        return;
-      }
+      if (conversation) {
+        if (
+          String(message.conversation) ===
+          String(conversation._id)
+        ) {
+          setMessages((previous) => {
+            const alreadyExists =
+              previous.some(
+                (item) =>
+                  String(item._id) ===
+                  String(message._id)
+              );
 
-      // Check conversation
-      if (
-        String(message.conversation) ===
-        String(conversation._id)
-      ) {
-        setMessages(
-          (prevMessages) => [
-            ...prevMessages,
-            message,
-          ]
-        );
+            if (alreadyExists) {
+              return previous;
+            }
+
+            return [
+              ...previous,
+              message,
+            ];
+          });
+        }
       }
 
       setSending(false);
@@ -191,141 +207,242 @@ const Chat = () => {
     conversation,
   ]);
 
-  // =========================
-  // Select User
-  // =========================
+  // ==========================================
+  // TYPING
+  // ==========================================
+
+  useEffect(() => {
+    if (!socket) {
+      return;
+    }
+
+    const handleTypingStart = (
+      data
+    ) => {
+      console.log(
+        "⌨️ TYPING START RECEIVED:",
+        data
+      );
+
+      if (!conversation) {
+        return;
+      }
+
+      if (
+        String(data.conversationId) !==
+        String(conversation._id)
+      ) {
+        return;
+      }
+
+      if (
+        String(data.senderId) !==
+        String(selectedUserId)
+      ) {
+        return;
+      }
+
+      setIsTyping(true);
+    };
+
+    const handleTypingStop = (
+      data
+    ) => {
+      console.log(
+        "⌨️ TYPING STOP RECEIVED:",
+        data
+      );
+
+      if (!conversation) {
+        return;
+      }
+
+      if (
+        String(data.conversationId) !==
+        String(conversation._id)
+      ) {
+        return;
+      }
+
+      setIsTyping(false);
+    };
+
+    socket.on(
+      "typing:start",
+      handleTypingStart
+    );
+
+    socket.on(
+      "typing:stop",
+      handleTypingStop
+    );
+
+    return () => {
+      socket.off(
+        "typing:start",
+        handleTypingStart
+      );
+
+      socket.off(
+        "typing:stop",
+        handleTypingStop
+      );
+    };
+  }, [
+    socket,
+    conversation,
+    selectedUserId,
+  ]);
+
+  // ==========================================
+  // SELECT USER
+  // ==========================================
 
   const handleSelectUser = async (
-    user
+    selected
   ) => {
     try {
-      // Selected user save
-      setSelectedUser(user);
+      console.log(
+        "👤 Selected user:",
+        selected
+      );
 
-      // Old conversation remove
+      // Immediately show selected user
+      setSelectedUser(selected);
+
+      // Close mobile sidebar
+      setSidebarOpen(false);
+
+      // Reset previous chat
       setConversation(null);
-
-      // Old messages clear
       setMessages([]);
+      setIsTyping(false);
 
-      // Loading start
       setLoading(true);
 
-      // =========================
-      // Create/Get Conversation
-      // =========================
+      const selectedId =
+        selected?._id ||
+        selected?.id;
 
+      if (!selectedId) {
+        console.error(
+          "❌ Selected user ID missing"
+        );
+
+        return;
+      }
+
+      // Create / get conversation
       const conversationData =
         await createOrGetConversation(
-          user._id
+          selectedId
         );
+
+      console.log(
+        "💬 Conversation:",
+        conversationData
+      );
 
       const currentConversation =
         conversationData.conversation;
 
-      // Save conversation
+      if (!currentConversation) {
+        console.error(
+          "❌ Conversation not found in response"
+        );
+
+        return;
+      }
+
       setConversation(
         currentConversation
       );
 
-      // =========================
-      // Get Old Messages
-      // =========================
-
+      // Get old messages
       const messageData =
         await getMessages(
           currentConversation._id
         );
+
+      console.log(
+        "📨 Messages:",
+        messageData
+      );
 
       setMessages(
         messageData.messages || []
       );
     } catch (error) {
       console.error(
-        "CHAT LOAD ERROR:",
+        "❌ CHAT LOAD ERROR:",
         error
       );
 
-      setMessages([]);
-
       setConversation(null);
+      setMessages([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // =========================
-  // Send Message
-  // =========================
+  // ==========================================
+  // SEND MESSAGE
+  // ==========================================
 
   const handleSendMessage = (
     text
   ) => {
-    // Socket check
     if (!socket) {
-      console.log(
-        "Socket not available"
-      );
-
       return;
     }
 
-    // Connection check
     if (!connected) {
-      console.log(
-        "Socket is not connected"
-      );
-
       return;
     }
 
-    // Conversation check
     if (!conversation) {
       return;
     }
 
-    // Selected user check
     if (!selectedUser) {
       return;
     }
 
-    // Text check
     if (!text.trim()) {
       return;
     }
-
-    // =========================
-    // Sender ID
-    // =========================
-
-    const senderId =
-      user?._id || user?.id;
-
-    // =========================
-    // Receiver ID
-    // =========================
 
     const receiverId =
       selectedUser?._id ||
       selectedUser?.id;
 
-    // =========================
-    // Sending State
-    // =========================
-
     setSending(true);
 
-    // =========================
-    // Send Through Socket.IO
-    // =========================
+    // Stop typing
+    socket.emit(
+      "typing:stop",
+      {
+        conversationId:
+          conversation._id,
 
+        senderId:
+          currentUserId,
+
+        receiverId,
+      }
+    );
+
+    setIsTyping(false);
+
+    // Send message
     socket.emit(
       "message:send",
       {
         conversationId:
           conversation._id,
 
-        senderId,
+        senderId:
+          currentUserId,
 
         receiverId,
 
@@ -334,88 +451,299 @@ const Chat = () => {
     );
   };
 
-  // =========================
-  // JSX
-  // =========================
+  // ==========================================
+  // TYPING START
+  // ==========================================
+
+  const handleTypingStart = () => {
+    if (!socket) {
+      return;
+    }
+
+    if (!connected) {
+      return;
+    }
+
+    if (!conversation) {
+      return;
+    }
+
+    if (!selectedUser) {
+      return;
+    }
+
+    const receiverId =
+      selectedUser?._id ||
+      selectedUser?.id;
+
+    console.log(
+      "⌨️ Sending typing:start"
+    );
+
+    socket.emit(
+      "typing:start",
+      {
+        conversationId:
+          conversation._id,
+
+        senderId:
+          currentUserId,
+
+        receiverId,
+      }
+    );
+  };
+
+  // ==========================================
+  // TYPING STOP
+  // ==========================================
+
+  const handleTypingStop = () => {
+    if (!socket) {
+      return;
+    }
+
+    if (!connected) {
+      return;
+    }
+
+    if (!conversation) {
+      return;
+    }
+
+    if (!selectedUser) {
+      return;
+    }
+
+    const receiverId =
+      selectedUser?._id ||
+      selectedUser?.id;
+
+    console.log(
+      "⌨️ Sending typing:stop"
+    );
+
+    socket.emit(
+      "typing:stop",
+      {
+        conversationId:
+          conversation._id,
+
+        senderId:
+          currentUserId,
+
+        receiverId,
+      }
+    );
+  };
+
+  // ==========================================
+  // UI
+  // ==========================================
 
   return (
-    <div className="h-screen bg-[#08090C] text-white flex overflow-hidden">
-      {/* =========================
-          Sidebar
-      ========================= */}
+    <div
+      className="
+        flex
+        h-[100dvh]
+        w-full
+        overflow-hidden
+        bg-[#08090C]
+        text-white
+      "
+    >
+      {/* ======================================
+          MOBILE OVERLAY
+      ====================================== */}
 
-      <Sidebar
-        onSelectUser={
-          handleSelectUser
-        }
-        selectedUser={
-          selectedUser
-        }
-      />
+      {sidebarOpen && (
+        <div
+          onClick={() =>
+            setSidebarOpen(false)
+          }
+          className="
+            fixed
+            inset-0
+            z-40
+            bg-black/70
+            md:hidden
+          "
+        />
+      )}
 
-      {/* =========================
-          Main Chat Area
-      ========================= */}
+      {/* ======================================
+          SIDEBAR
+      ====================================== */}
 
-      <main className="flex-1 flex flex-col min-w-0">
+     <aside
+  className={`
+    fixed
+    inset-y-0
+    left-0
+    z-50
+    w-[85vw]
+    max-w-[320px]
+    transform
+    transition-transform
+    duration-300
+    md:relative
+    md:z-10
+    md:flex
+    md:w-[300px]
+    md:max-w-none
+    md:translate-x-0
+    ${
+      sidebarOpen
+        ? "translate-x-0"
+        : "-translate-x-full"
+    }
+  `}
+>
+  <Sidebar
+    onSelectUser={handleSelectUser}
+    selectedUser={selectedUser}
+    onClose={() =>
+      setSidebarOpen(false)
+    }
+  />
+</aside>
+
+      {/* ======================================
+          MAIN CHAT AREA
+      ====================================== */}
+
+      <main
+        className="
+          flex
+          min-w-0
+          flex-1
+          flex-col
+          overflow-hidden
+        "
+      >
+        {/* MOBILE TOP BAR */}
+
+        <div
+          className="
+            flex
+            h-14
+            shrink-0
+            items-center
+            border-b
+            border-white/10
+            bg-[#0C0D12]
+            px-3
+            md:hidden
+          "
+        >
+          <button
+            type="button"
+            onClick={() =>
+              setSidebarOpen(true)
+            }
+            className="
+              flex
+              h-10
+              w-10
+              items-center
+              justify-center
+              rounded-lg
+              hover:bg-white/5
+            "
+          >
+            <Menu size={22} />
+          </button>
+
+          <div className="ml-2">
+            <p className="text-sm font-semibold">
+              Chatly
+            </p>
+
+            <p
+              className={`
+                text-[10px]
+                ${
+                  connected
+                    ? "text-green-400"
+                    : "text-red-400"
+                }
+              `}
+            >
+              {connected
+                ? "Connected"
+                : "Disconnected"}
+            </p>
+          </div>
+        </div>
+
+        {/* ==================================
+            SELECTED USER CHAT
+        ================================== */}
+
         {selectedUser ? (
-          <>
-            {/* =========================
-                Chat Header
-            ========================= */}
+          <div
+            className="
+              flex
+              min-h-0
+              flex-1
+              flex-col
+            "
+          >
+            {/* CHAT HEADER */}
 
             <ChatHeader
               user={selectedUser}
             />
 
-            {/* =========================
-                Messages Area
-            ========================= */}
+            {/* MESSAGES */}
 
-            <div className="flex-1 overflow-y-auto p-4">
+            <div
+              className="
+                min-h-0
+                flex-1
+                overflow-y-auto
+                px-3
+                py-4
+                sm:px-4
+              "
+            >
               {loading ? (
-                // =========================
-                // Loading
-                // =========================
-
-                <div className="h-full flex items-center justify-center">
-                  <p className="text-gray-400">
+                <div className="flex h-full items-center justify-center">
+                  <p className="text-sm text-gray-400">
                     Loading messages...
                   </p>
                 </div>
               ) : messages.length ===
                 0 ? (
-                // =========================
-                // No Messages
-                // =========================
-
-                <div className="h-full flex items-center justify-center">
+                <div className="flex h-full items-center justify-center px-5">
                   <div className="text-center">
                     <MessageCircle
                       size={50}
                       className="mx-auto mb-4 text-purple-400"
                     />
 
-                    <h2 className="text-lg font-semibold">
+                    <h2 className="text-base font-semibold sm:text-lg">
                       No messages yet
                     </h2>
 
-                    <p className="text-gray-500 mt-1">
-                      Start a
-                      conversation
+                    <p className="mt-1 text-xs text-gray-500 sm:text-sm">
+                      Start a conversation
                       with{" "}
-                      {
-                        selectedUser.name
-                      }
+                      {selectedUser.name}
                     </p>
                   </div>
                 </div>
               ) : (
-                // =========================
-                // Messages
-                // =========================
-
-                <div className="max-w-4xl mx-auto space-y-3">
+                <div
+                  className="
+                    mx-auto
+                    flex
+                    w-full
+                    max-w-4xl
+                    flex-col
+                    gap-3
+                  "
+                >
                   {messages.map(
                     (message) => (
                       <MessageBubble
@@ -432,40 +760,93 @@ const Chat = () => {
               )}
             </div>
 
-            {/* =========================
-                Message Input
-            ========================= */}
+            {/* TYPING INDICATOR */}
+
+            <div
+              className="
+                flex
+                h-6
+                shrink-0
+                items-center
+                px-4
+              "
+            >
+              {isTyping && (
+                <p className="animate-pulse text-xs text-purple-400">
+                  {selectedUser.name}{" "}
+                  is typing...
+                </p>
+              )}
+            </div>
+
+            {/* MESSAGE INPUT */}
 
             <MessageInput
               onSend={
                 handleSendMessage
               }
+              onTypingStart={
+                handleTypingStart
+              }
+              onTypingStop={
+                handleTypingStop
+              }
               disabled={
-                sending ||
-                !connected
+                !connected ||
+                sending
               }
             />
-          </>
+          </div>
         ) : (
-          // =========================
-          // No User Selected
-          // =========================
+          /* ==================================
+             NO USER SELECTED
+          ================================== */
 
-          <div className="flex-1 flex items-center justify-center">
+          <div
+            className="
+              flex
+              min-h-0
+              flex-1
+              items-center
+              justify-center
+              px-5
+            "
+          >
             <div className="text-center">
               <MessageCircle
-                size={64}
+                size={55}
                 className="mx-auto mb-5 text-purple-400"
               />
 
-              <h1 className="text-2xl font-semibold">
+              <h1 className="text-xl font-semibold sm:text-2xl">
                 Welcome to Chatly
               </h1>
 
-              <p className="text-gray-500 mt-2">
-                Select a user to
-                start chatting
+              <p className="mt-2 text-sm text-gray-500">
+                Select a user to start
+                chatting
               </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSidebarOpen(true)
+                }
+                className="
+                  mt-5
+                  rounded-xl
+                  bg-purple-600
+                  px-5
+                  py-2.5
+                  text-sm
+                  font-medium
+                  transition
+                  hover:bg-purple-500
+                  md:hidden
+                "
+              >
+                Select User
+              </button>
             </div>
           </div>
         )}

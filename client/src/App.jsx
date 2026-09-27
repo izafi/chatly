@@ -1,4 +1,8 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+} from "react-router-dom";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -10,9 +14,6 @@ const App = () => {
   return (
     <BrowserRouter>
       <Routes>
-
-        {/* Public Routes */}
-
         <Route
           path="/login"
           element={<Login />}
@@ -23,8 +24,6 @@ const App = () => {
           element={<Register />}
         />
 
-        {/* Protected Chat Route */}
-
         <Route
           path="/"
           element={
@@ -33,7 +32,6 @@ const App = () => {
             </ProtectedRoute>
           }
         />
-
       </Routes>
     </BrowserRouter>
   );

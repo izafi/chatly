@@ -1,176 +1,380 @@
-import { useEffect, useState } from "react";
-import { Search, User } from "lucide-react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
-import { getUsers, searchUsers } from "../services/userService";
+import {
+  Search,
+  MessageCircle,
+  X,
+} from "lucide-react";
 
-const Sidebar = ({ onSelectUser, selectedUser }) => {
-  const [users, setUsers] = useState([]);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+import api from "../services/api";
 
-  // Get all users
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const data = await getUsers();
+import { useAuth } from "../context/AuthContext";
 
-        setUsers(data.users);
-      } catch (error) {
-        console.error(
-          "Failed to fetch users:",
-          error
+const Sidebar = ({
+  onSelectUser,
+  selectedUser,
+  onClose,
+}) => {
+  const { user } =
+    useAuth();
+
+  const [
+    users,
+    setUsers,
+  ] = useState([]);
+
+  const [
+    search,
+    setSearch,
+  ] = useState("");
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  // ======================================
+  // GET USERS
+  // ======================================
+
+  const fetchUsers = async (
+    searchValue = ""
+  ) => {
+    try {
+      setLoading(true);
+
+      let response;
+
+      if (searchValue.trim()) {
+        response = await api.get(
+          "/users/search",
+          {
+            params: {
+              query:
+                searchValue.trim(),
+            },
+          }
         );
-      } finally {
-        setLoading(false);
+      } else {
+        response = await api.get(
+          "/users"
+        );
       }
-    };
 
+      setUsers(
+        response.data.users || []
+      );
+    } catch (error) {
+      console.error(
+        "GET USERS ERROR:",
+        error
+      );
+
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ======================================
+  // INITIAL USERS
+  // ======================================
+
+  useEffect(() => {
     fetchUsers();
   }, []);
 
+  // ======================================
+  // SEARCH DEBOUNCE
+  // ======================================
 
-  // Search users
   useEffect(() => {
-    const searchUser = async () => {
-      if (!search.trim()) {
-        try {
-          const data = await getUsers();
+    const timer =
+      setTimeout(() => {
+        fetchUsers(search);
+      }, 400);
 
-          setUsers(data.users);
-        } catch (error) {
-          console.error(error);
-        }
-
-        return;
-      }
-
-      try {
-        const data = await searchUsers(search);
-
-        setUsers(data.users);
-      } catch (error) {
-        console.error(error);
-      }
+    return () => {
+      clearTimeout(timer);
     };
-
-
-    const timer = setTimeout(() => {
-      searchUser();
-    }, 400);
-
-    return () => clearTimeout(timer);
-
   }, [search]);
 
+  // ======================================
+  // SELECT USER
+  // ======================================
+
+  const handleUserClick = (
+    selected
+  ) => {
+    onSelectUser(selected);
+
+    onClose?.();
+  };
 
   return (
-    <aside className="w-full md:w-80 h-full bg-[#0F1117] border-r border-white/10 flex flex-col">
+    <div
+      className="
+        flex
+        h-full
+        w-full
+        flex-col
+        border-r
+        border-white/10
+        bg-[#0C0D12]
+      "
+    >
+      {/* =================================
+          HEADER
+      ================================= */}
 
-      {/* Header */}
+      <div
+        className="
+          flex
+          h-16
+          shrink-0
+          items-center
+          justify-between
+          border-b
+          border-white/10
+          px-4
+        "
+      >
+        <div className="flex items-center gap-2">
+          <div
+            className="
+              flex
+              h-9
+              w-9
+              items-center
+              justify-center
+              rounded-xl
+              bg-purple-600
+            "
+          >
+            <MessageCircle
+              size={19}
+            />
+          </div>
 
-      <div className="p-5 border-b border-white/10">
+          <div>
+            <h1 className="text-sm font-semibold">
+              Chatly
+            </h1>
 
-        <h1 className="text-2xl font-bold text-white">
-          Chatly
-        </h1>
+            <p className="text-[10px] text-gray-500">
+              Real-time chat
+            </p>
+          </div>
+        </div>
 
-        <p className="text-sm text-gray-500 mt-1">
-          Messages
-        </p>
+        {/* Mobile close */}
 
+        <button
+          type="button"
+          onClick={onClose}
+          className="
+            flex
+            h-9
+            w-9
+            items-center
+            justify-center
+            rounded-lg
+            hover:bg-white/5
+            md:hidden
+          "
+        >
+          <X size={20} />
+        </button>
       </div>
 
+      {/* =================================
+          CURRENT USER
+      ================================= */}
 
-      {/* Search */}
+      <div className="border-b border-white/10 p-4">
+        <div className="flex items-center gap-3">
+          <div
+            className="
+              flex
+              h-10
+              w-10
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              bg-purple-600
+              font-semibold
+            "
+          >
+            {user?.name
+              ?.charAt(0)
+              ?.toUpperCase()}
+          </div>
+
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">
+              {user?.name}
+            </p>
+
+            <p className="text-xs text-green-400">
+              Online
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* =================================
+          SEARCH
+      ================================= */}
 
       <div className="p-4">
-
-        <div className="relative">
-
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+            rounded-xl
+            border
+            border-white/10
+            bg-[#15161C]
+            px-3
+          "
+        >
           <Search
-            size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+            size={17}
+            className="shrink-0 text-gray-500"
           />
 
           <input
             type="text"
             value={search}
             onChange={(e) =>
-              setSearch(e.target.value)
+              setSearch(
+                e.target.value
+              )
             }
             placeholder="Search users..."
-            className="w-full bg-[#08090C] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder-gray-500 outline-none focus:border-purple-500"
+            className="
+              min-w-0
+              flex-1
+              bg-transparent
+              py-3
+              text-sm
+              text-white
+              outline-none
+              placeholder:text-gray-500
+            "
           />
-
         </div>
-
       </div>
 
+      {/* =================================
+          USERS
+      ================================= */}
 
-      {/* Users */}
-
-      <div className="flex-1 overflow-y-auto px-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wider text-gray-500">
+          Users
+        </p>
 
         {loading ? (
-          <p className="text-center text-gray-500 py-5">
+          <div className="px-3 py-5 text-center text-sm text-gray-500">
             Loading users...
-          </p>
-        ) : users.length === 0 ? (
-          <p className="text-center text-gray-500 py-5">
+          </div>
+        ) : users.length ===
+          0 ? (
+          <div className="px-3 py-5 text-center text-sm text-gray-500">
             No users found
-          </p>
+          </div>
         ) : (
+          <div className="space-y-1">
+            {users.map(
+              (item) => {
+                const itemId =
+                  item._id ||
+                  item.id;
 
-          users.map((user) => (
+                const selectedId =
+                  selectedUser?._id ||
+                  selectedUser?.id;
 
-            <button
-              key={user._id}
-              onClick={() =>
-                onSelectUser(user)
+                const isSelected =
+                  String(
+                    itemId
+                  ) ===
+                  String(
+                    selectedId
+                  );
+
+                return (
+                  <button
+                    key={itemId}
+                    type="button"
+                    onClick={() =>
+                      handleUserClick(
+                        item
+                      )
+                    }
+                    className={`
+                      flex
+                      w-full
+                      items-center
+                      gap-3
+                      rounded-xl
+                      p-3
+                      text-left
+                      transition
+                      ${
+                        isSelected
+                          ? "bg-purple-600/20"
+                          : "hover:bg-white/5"
+                      }
+                    `}
+                  >
+                    {/* Avatar */}
+
+                    <div
+                      className="
+                        flex
+                        h-10
+                        w-10
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-full
+                        bg-[#272330]
+                        font-semibold
+                      "
+                    >
+                      {item?.name
+                        ?.charAt(
+                          0
+                        )
+                        ?.toUpperCase()}
+                    </div>
+
+                    {/* Info */}
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {item.name}
+                      </p>
+
+                      <p className="truncate text-xs text-gray-500">
+                        {item.email}
+                      </p>
+                    </div>
+                  </button>
+                );
               }
-              className={`w-full flex items-center gap-3 p-3 rounded-xl mb-1 text-left transition ${
-                selectedUser?._id === user._id
-                  ? "bg-purple-600/20"
-                  : "hover:bg-white/5"
-              }`}
-            >
-
-              {/* Avatar */}
-
-              <div className="w-11 h-11 rounded-full bg-purple-600 flex items-center justify-center text-white font-semibold shrink-0">
-
-                {user.name
-                  ?.charAt(0)
-                  ?.toUpperCase() || (
-                  <User size={20} />
-                )}
-
-              </div>
-
-
-              {/* User Info */}
-
-              <div className="min-w-0">
-
-                <h3 className="text-white font-medium truncate">
-                  {user.name}
-                </h3>
-
-                <p className="text-sm text-gray-500 truncate">
-                  {user.email}
-                </p>
-
-              </div>
-
-            </button>
-
-          ))
-
+            )}
+          </div>
         )}
-
       </div>
-
-    </aside>
+    </div>
   );
 };
 

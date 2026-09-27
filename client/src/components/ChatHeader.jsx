@@ -24,32 +24,63 @@ const ChatHeader = ({
     );
 
   return (
-    <header className="h-16 px-5 border-b border-white/10 bg-[#0C0D12] flex items-center justify-between">
-      {/* =========================
-          User Info
-      ========================= */}
+    <header
+      className="
+        flex
+        h-16
+        shrink-0
+        items-center
+        justify-between
+        border-b
+        border-white/10
+        bg-[#0C0D12]
+        px-3
+        sm:px-5
+      "
+    >
+      {/* LEFT */}
 
-      <div className="flex items-center gap-3">
-        {/* Avatar */}
-
-        <div className="relative">
-          <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center font-semibold">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="relative shrink-0">
+          <div
+            className="
+              flex
+              h-9
+              w-9
+              items-center
+              justify-center
+              rounded-full
+              bg-purple-600
+              text-sm
+              font-semibold
+              sm:h-10
+              sm:w-10
+            "
+          >
             {user?.name
               ?.charAt(0)
               ?.toUpperCase()}
           </div>
 
-          {/* Online Dot */}
-
           {isOnline && (
-            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#0C0D12] rounded-full" />
+            <span
+              className="
+                absolute
+                bottom-0
+                right-0
+                h-2.5
+                w-2.5
+                rounded-full
+                border-2
+                border-[#0C0D12]
+                bg-green-500
+              "
+            />
           )}
         </div>
 
-        {/* Name + Status */}
-
-        <div>
-          <h2 className="font-semibold text-sm">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold">
             {user?.name}
           </h2>
 
@@ -67,21 +98,55 @@ const ChatHeader = ({
         </div>
       </div>
 
-      {/* =========================
-          Actions
-      ========================= */}
+      {/* RIGHT */}
 
-      <div className="flex items-center gap-2">
-        <button className="w-9 h-9 rounded-lg hover:bg-white/5 flex items-center justify-center transition">
-          <Phone size={18} />
+      <div className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          className="
+            flex
+            h-9
+            w-9
+            items-center
+            justify-center
+            rounded-lg
+            hover:bg-white/5
+          "
+        >
+          <Phone size={17} />
         </button>
 
-        <button className="w-9 h-9 rounded-lg hover:bg-white/5 flex items-center justify-center transition">
+        <button
+          type="button"
+          className="
+            hidden
+            h-9
+            w-9
+            items-center
+            justify-center
+            rounded-lg
+            hover:bg-white/5
+            sm:flex
+          "
+        >
           <Video size={18} />
         </button>
 
-        <button className="w-9 h-9 rounded-lg hover:bg-white/5 flex items-center justify-center transition">
-          <MoreVertical size={18} />
+        <button
+          type="button"
+          className="
+            flex
+            h-9
+            w-9
+            items-center
+            justify-center
+            rounded-lg
+            hover:bg-white/5
+          "
+        >
+          <MoreVertical
+            size={18}
+          />
         </button>
       </div>
     </header>

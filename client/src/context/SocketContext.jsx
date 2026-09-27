@@ -17,22 +17,32 @@ export const SocketProvider = ({
 }) => {
   const { user } = useAuth();
 
-  const [socket, setSocket] =
-    useState(null);
+  const [
+    socket,
+    setSocket,
+  ] = useState(null);
 
-  const [connected, setConnected] =
-    useState(false);
+  const [
+    connected,
+    setConnected,
+  ] = useState(false);
 
-  const [onlineUsers, setOnlineUsers] =
-    useState([]);
+  const [
+    onlineUsers,
+    setOnlineUsers,
+  ] = useState([]);
 
   useEffect(() => {
     if (!user) {
+      setSocket(null);
+      setConnected(false);
+      setOnlineUsers([]);
+
       return;
     }
 
     console.log(
-      "Connecting to Socket.IO..."
+      "🔌 Connecting Socket.IO..."
     );
 
     const newSocket = io(
@@ -42,13 +52,13 @@ export const SocketProvider = ({
       }
     );
 
-    // =========================
+    // ======================================
     // CONNECT
-    // =========================
+    // ======================================
 
     newSocket.on("connect", () => {
       console.log(
-        "Socket connected:",
+        "🟢 Socket connected:",
         newSocket.id
       );
 
@@ -57,22 +67,26 @@ export const SocketProvider = ({
       const userId =
         user._id || user.id;
 
-      // Register user
+      console.log(
+        "👤 Sending user online:",
+        userId
+      );
+
       newSocket.emit(
         "user:online",
         userId
       );
     });
 
-    // =========================
+    // ======================================
     // ONLINE USERS
-    // =========================
+    // ======================================
 
     newSocket.on(
       "users:online",
       (users) => {
         console.log(
-          "Online users:",
+          "🟢 Online users:",
           users
         );
 
@@ -80,42 +94,52 @@ export const SocketProvider = ({
       }
     );
 
-    // =========================
-    // DISCONNECT
-    // =========================
+    // ======================================
+    // CONNECT ERROR
+    // ======================================
 
     newSocket.on(
-      "disconnect",
-      () => {
-        console.log(
-          "Socket disconnected"
+      "connect_error",
+      (error) => {
+        console.error(
+          "❌ Socket error:",
+          error.message
         );
 
         setConnected(false);
       }
     );
 
-    // =========================
-    // SAVE SOCKET
-    // =========================
+    // ======================================
+    // DISCONNECT
+    // ======================================
+
+    newSocket.on(
+      "disconnect",
+      () => {
+        console.log(
+          "🔴 Socket disconnected"
+        );
+
+        setConnected(false);
+      }
+    );
 
     setSocket(newSocket);
 
-    // =========================
+    // ======================================
     // CLEANUP
-    // =========================
+    // ======================================
 
     return () => {
       console.log(
-        "Cleaning up socket..."
+        "🧹 Cleaning socket..."
       );
 
       newSocket.disconnect();
 
       setSocket(null);
-
       setConnected(false);
-
       setOnlineUsers([]);
     };
   }, [user]);

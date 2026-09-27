@@ -18,15 +18,15 @@ const Conversation = require("./models/Conversation");
 
 const app = express();
 
-// =========================
-// Database
-// =========================
+// ==========================================
+// DATABASE
+// ==========================================
 
 connectDB();
 
-// =========================
-// Middleware
-// =========================
+// ==========================================
+// MIDDLEWARE
+// ==========================================
 
 app.use(
   cors({
@@ -45,9 +45,9 @@ app.use(
 
 app.use(cookieParser());
 
-// =========================
-// API Routes
-// =========================
+// ==========================================
+// API ROUTES
+// ==========================================
 
 app.use("/api/auth", authRoutes);
 
@@ -63,9 +63,9 @@ app.use(
   messageRoutes
 );
 
-// =========================
-// Test Route
-// =========================
+// ==========================================
+// TEST ROUTE
+// ==========================================
 
 app.get("/", (req, res) => {
   res.json({
@@ -73,15 +73,15 @@ app.get("/", (req, res) => {
   });
 });
 
-// =========================
-// HTTP Server
-// =========================
+// ==========================================
+// HTTP SERVER
+// ==========================================
 
 const server = http.createServer(app);
 
-// =========================
-// Socket.IO
-// =========================
+// ==========================================
+// SOCKET.IO
+// ==========================================
 
 const io = new Server(server, {
   cors: {
@@ -90,35 +90,31 @@ const io = new Server(server, {
   },
 });
 
-// =========================
-// Online Users
-// =========================
+// ==========================================
+// ONLINE USERS
+// ==========================================
 
 const onlineUsers = new Map();
 
-// =========================
-// Get Online Users
-// =========================
+// userId => socketId
 
 const getOnlineUsers = () => {
-  return Array.from(
-    onlineUsers.keys()
-  );
+  return Array.from(onlineUsers.keys());
 };
 
-// =========================
-// Socket Connection
-// =========================
+// ==========================================
+// SOCKET CONNECTION
+// ==========================================
 
 io.on("connection", (socket) => {
   console.log(
-    "New socket connected:",
+    "🟢 New socket connected:",
     socket.id
   );
 
-  // =========================
+  // ========================================
   // USER ONLINE
-  // =========================
+  // ========================================
 
   socket.on("user:online", (userId) => {
     if (!userId) {
@@ -134,8 +130,13 @@ io.on("connection", (socket) => {
     );
 
     console.log(
-      "User online:",
+      "👤 User online:",
       userIdString
+    );
+
+    console.log(
+      "🟢 Online users:",
+      getOnlineUsers()
     );
 
     io.emit(
@@ -144,20 +145,35 @@ io.on("connection", (socket) => {
     );
   });
 
-  // =========================
+  // ========================================
   // TYPING START
-  // =========================
+  // ========================================
 
   socket.on(
     "typing:start",
     ({
-      receiverId,
+      conversationId,
       senderId,
+      receiverId,
     }) => {
+      console.log(
+        "⌨️ typing:start received:",
+        {
+          conversationId,
+          senderId,
+          receiverId,
+        }
+      );
+
       if (
-        !receiverId ||
-        !senderId
+        !conversationId ||
+        !senderId ||
+        !receiverId
       ) {
+        console.log(
+          "❌ Missing typing data"
+        );
+
         return;
       }
 
@@ -166,33 +182,62 @@ io.on("connection", (socket) => {
           receiverId.toString()
         );
 
-      if (receiverSocketId) {
-        io.to(
-          receiverSocketId
-        ).emit(
-          "typing:start",
-          {
-            senderId:
-              senderId.toString(),
-          }
+      console.log(
+        "Receiver socket:",
+        receiverSocketId
+      );
+
+      if (!receiverSocketId) {
+        console.log(
+          "❌ Receiver is offline"
         );
+
+        return;
       }
+
+      io.to(
+        receiverSocketId
+      ).emit(
+        "typing:start",
+        {
+          conversationId:
+            conversationId.toString(),
+
+          senderId:
+            senderId.toString(),
+        }
+      );
+
+      console.log(
+        "✅ typing:start sent"
+      );
     }
   );
 
-  // =========================
+  // ========================================
   // TYPING STOP
-  // =========================
+  // ========================================
 
   socket.on(
     "typing:stop",
     ({
-      receiverId,
+      conversationId,
       senderId,
+      receiverId,
     }) => {
+      console.log(
+        "⌨️ typing:stop received:",
+        {
+          conversationId,
+          senderId,
+          receiverId,
+        }
+      );
+
       if (
-        !receiverId ||
-        !senderId
+        !conversationId ||
+        !senderId ||
+        !receiverId
       ) {
         return;
       }
@@ -202,23 +247,32 @@ io.on("connection", (socket) => {
           receiverId.toString()
         );
 
-      if (receiverSocketId) {
-        io.to(
-          receiverSocketId
-        ).emit(
-          "typing:stop",
-          {
-            senderId:
-              senderId.toString(),
-          }
-        );
+      if (!receiverSocketId) {
+        return;
       }
+
+      io.to(
+        receiverSocketId
+      ).emit(
+        "typing:stop",
+        {
+          conversationId:
+            conversationId.toString(),
+
+          senderId:
+            senderId.toString(),
+        }
+      );
+
+      console.log(
+        "✅ typing:stop sent"
+      );
     }
   );
 
-  // =========================
-  // REAL-TIME SEND MESSAGE
-  // =========================
+  // ========================================
+  // SEND MESSAGE
+  // ========================================
 
   socket.on(
     "message:send",
@@ -227,8 +281,8 @@ io.on("connection", (socket) => {
         const {
           conversationId,
           senderId,
-          text,
           receiverId,
+          text,
         } = data;
 
         if (
@@ -240,6 +294,10 @@ io.on("connection", (socket) => {
           return;
         }
 
+        // ------------------------------------
+        // Find conversation
+        // ------------------------------------
+
         const conversation =
           await Conversation.findById(
             conversationId
@@ -247,11 +305,15 @@ io.on("connection", (socket) => {
 
         if (!conversation) {
           console.log(
-            "Conversation not found"
+            "❌ Conversation not found"
           );
 
           return;
         }
+
+        // ------------------------------------
+        // Check sender participant
+        // ------------------------------------
 
         const isParticipant =
           conversation.participants.some(
@@ -262,11 +324,15 @@ io.on("connection", (socket) => {
 
         if (!isParticipant) {
           console.log(
-            "Sender is not participant"
+            "❌ Sender is not participant"
           );
 
           return;
         }
+
+        // ------------------------------------
+        // Save message
+        // ------------------------------------
 
         const message =
           await Message.create({
@@ -278,20 +344,32 @@ io.on("connection", (socket) => {
             text: text.trim(),
           });
 
+        // ------------------------------------
+        // Populate sender
+        // ------------------------------------
+
         await message.populate(
           "sender",
           "-password"
         );
 
         console.log(
-          "Message saved:",
+          "💬 Message saved:",
           message.text
         );
+
+        // ------------------------------------
+        // Receiver socket
+        // ------------------------------------
 
         const receiverSocketId =
           onlineUsers.get(
             receiverId.toString()
           );
+
+        // ------------------------------------
+        // Send to receiver
+        // ------------------------------------
 
         if (receiverSocketId) {
           io.to(
@@ -302,26 +380,30 @@ io.on("connection", (socket) => {
           );
         }
 
+        // ------------------------------------
+        // Send back to sender
+        // ------------------------------------
+
         socket.emit(
           "message:sent",
           message
         );
       } catch (error) {
         console.error(
-          "SOCKET MESSAGE ERROR:",
+          "❌ SOCKET MESSAGE ERROR:",
           error
         );
       }
     }
   );
 
-  // =========================
+  // ========================================
   // DISCONNECT
-  // =========================
+  // ========================================
 
   socket.on("disconnect", () => {
     console.log(
-      "Socket disconnected:",
+      "🔴 Socket disconnected:",
       socket.id
     );
 
@@ -329,8 +411,8 @@ io.on("connection", (socket) => {
       null;
 
     for (
-      const [userId, socketId]
-      of onlineUsers.entries()
+      const [userId, socketId] of
+      onlineUsers.entries()
     ) {
       if (
         socketId === socket.id
@@ -348,7 +430,7 @@ io.on("connection", (socket) => {
 
     if (disconnectedUserId) {
       console.log(
-        "User offline:",
+        "🔴 User offline:",
         disconnectedUserId
       );
 
@@ -357,18 +439,23 @@ io.on("connection", (socket) => {
         getOnlineUsers()
       );
     }
+
+    console.log(
+      "🟢 Online users:",
+      getOnlineUsers()
+    );
   });
 });
 
-// =========================
-// Start Server
-// =========================
+// ==========================================
+// START SERVER
+// ==========================================
 
 const PORT =
   process.env.PORT || 5000;
 
 server.listen(PORT, () => {
   console.log(
-    `Server running on port ${PORT}`
+    `🚀 Server running on port ${PORT}`
   );
 });
