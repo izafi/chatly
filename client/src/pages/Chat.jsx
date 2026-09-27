@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -12,6 +13,7 @@ import Sidebar from "../components/Sidebar";
 import ChatHeader from "../components/ChatHeader";
 import MessageBubble from "../components/MessageBubble";
 import MessageInput from "../components/MessageInput";
+import MessageDate from "../components/MessageDate";
 
 import {
   createOrGetConversation,
@@ -72,6 +74,13 @@ const Chat = () => {
   ] = useState(false);
 
   // ==========================================
+  // AUTO SCROLL REF
+  // ==========================================
+
+  const messagesEndRef =
+    useRef(null);
+
+  // ==========================================
   // USER IDS
   // ==========================================
 
@@ -81,6 +90,16 @@ const Chat = () => {
   const selectedUserId =
     selectedUser?._id ||
     selectedUser?.id;
+
+  // ==========================================
+  // AUTO SCROLL
+  // ==========================================
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+  }, [messages]);
 
   // ==========================================
   // RECEIVE MESSAGE
@@ -111,7 +130,6 @@ const Chat = () => {
       }
 
       setMessages((previous) => {
-        // Duplicate message avoid
         const alreadyExists =
           previous.some(
             (item) =>
@@ -208,7 +226,7 @@ const Chat = () => {
   ]);
 
   // ==========================================
-  // TYPING
+  // TYPING INDICATOR
   // ==========================================
 
   useEffect(() => {
@@ -307,15 +325,16 @@ const Chat = () => {
         selected
       );
 
-      // Immediately show selected user
-      setSelectedUser(selected);
+      setSelectedUser(
+        selected
+      );
 
-      // Close mobile sidebar
       setSidebarOpen(false);
 
-      // Reset previous chat
       setConversation(null);
+
       setMessages([]);
+
       setIsTyping(false);
 
       setLoading(true);
@@ -348,7 +367,7 @@ const Chat = () => {
 
       if (!currentConversation) {
         console.error(
-          "❌ Conversation not found in response"
+          "❌ Conversation not found"
         );
 
         return;
@@ -358,7 +377,7 @@ const Chat = () => {
         currentConversation
       );
 
-      // Get old messages
+      // Get messages
       const messageData =
         await getMessages(
           currentConversation._id
@@ -379,6 +398,7 @@ const Chat = () => {
       );
 
       setConversation(null);
+
       setMessages([]);
     } finally {
       setLoading(false);
@@ -538,6 +558,17 @@ const Chat = () => {
   };
 
   // ==========================================
+  // GET MESSAGE DATE
+  // ==========================================
+
+  const getMessageDate =
+    (message) => {
+      return new Date(
+        message.createdAt
+      ).toDateString();
+    };
+
+  // ==========================================
   // UI
   // ==========================================
 
@@ -575,38 +606,42 @@ const Chat = () => {
           SIDEBAR
       ====================================== */}
 
-     <aside
-  className={`
-    fixed
-    inset-y-0
-    left-0
-    z-50
-    w-[85vw]
-    max-w-[320px]
-    transform
-    transition-transform
-    duration-300
-    md:relative
-    md:z-10
-    md:flex
-    md:w-[300px]
-    md:max-w-none
-    md:translate-x-0
-    ${
-      sidebarOpen
-        ? "translate-x-0"
-        : "-translate-x-full"
-    }
-  `}
->
-  <Sidebar
-    onSelectUser={handleSelectUser}
-    selectedUser={selectedUser}
-    onClose={() =>
-      setSidebarOpen(false)
-    }
-  />
-</aside>
+      <aside
+        className={`
+          fixed
+          inset-y-0
+          left-0
+          z-50
+          w-[85vw]
+          max-w-[320px]
+          transform
+          transition-transform
+          duration-300
+          md:relative
+          md:z-10
+          md:flex
+          md:w-[300px]
+          md:max-w-none
+          md:translate-x-0
+          ${
+            sidebarOpen
+              ? "translate-x-0"
+              : "-translate-x-full"
+          }
+        `}
+      >
+        <Sidebar
+          onSelectUser={
+            handleSelectUser
+          }
+          selectedUser={
+            selectedUser
+          }
+          onClose={() =>
+            setSidebarOpen(false)
+          }
+        />
+      </aside>
 
       {/* ======================================
           MAIN CHAT AREA
@@ -741,21 +776,71 @@ const Chat = () => {
                     w-full
                     max-w-4xl
                     flex-col
-                    gap-3
                   "
                 >
                   {messages.map(
-                    (message) => (
-                      <MessageBubble
-                        key={
-                          message._id
-                        }
-                        message={
+                    (
+                      message,
+                      index
+                    ) => {
+                      const currentDate =
+                        getMessageDate(
                           message
-                        }
-                      />
-                    )
+                        );
+
+                      const previousMessage =
+                        messages[
+                          index - 1
+                        ];
+
+                      const previousDate =
+                        previousMessage
+                          ? getMessageDate(
+                              previousMessage
+                            )
+                          : null;
+
+                      const showDate =
+                        currentDate !==
+                        previousDate;
+
+                      return (
+                        <div
+                          key={
+                            message._id
+                          }
+                        >
+                          {/* DATE SEPARATOR */}
+
+                          {showDate && (
+                            <MessageDate
+                              date={
+                                message.createdAt
+                              }
+                            />
+                          )}
+
+                          {/* MESSAGE */}
+
+                          <div className="mb-3">
+                            <MessageBubble
+                              message={
+                                message
+                              }
+                            />
+                          </div>
+                        </div>
+                      );
+                    }
                   )}
+
+                  {/* AUTO SCROLL TARGET */}
+
+                  <div
+                    ref={
+                      messagesEndRef
+                    }
+                  />
                 </div>
               )}
             </div>
