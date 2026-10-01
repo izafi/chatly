@@ -3,17 +3,21 @@ const express = require("express");
 const {
   getUsers,
   searchUsers,
+  getMyProfile,
+  updateProfile,
 } = require("../controllers/userController");
 
-const authMiddleware = require("../middleware/authMiddleware");
+const protect =
+  require("../middleware/authMiddleware");
 
-const router = express.Router();
+const router =
+  express.Router();
 
 
-// Get all users
+// All users
 router.get(
   "/",
-  authMiddleware,
+  protect,
   getUsers
 );
 
@@ -21,8 +25,24 @@ router.get(
 // Search users
 router.get(
   "/search",
-  authMiddleware,
+  protect,
   searchUsers
+);
+
+
+// My profile
+router.get(
+  "/profile",
+  protect,
+  getMyProfile
+);
+
+
+// Update profile
+router.put(
+  "/profile",
+  protect,
+  updateProfile
 );
 
 

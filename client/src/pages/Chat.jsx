@@ -568,6 +568,11 @@ const Chat = () => {
       ).toDateString();
     };
 
+    const handleUnfriend = () => {
+  setSelectedUser(null);
+  setConversation(null);
+  setMessages([]);
+};
   // ==========================================
   // UI
   // ==========================================
@@ -727,9 +732,9 @@ const Chat = () => {
             {/* CHAT HEADER */}
 
             <ChatHeader
-              user={selectedUser}
-            />
-
+  user={selectedUser}
+  onUnfriend={handleUnfriend}
+/>
             {/* MESSAGES */}
 
             <div

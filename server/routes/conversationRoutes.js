@@ -4,9 +4,11 @@ const {
   createOrGetConversation,
 } = require("../controllers/conversationController");
 
-const protect = require("../middleware/authMiddleware");
+const protect =
+  require("../middleware/authMiddleware");
 
-const router = express.Router();
+const router =
+  express.Router();
 
 router.post(
   "/",

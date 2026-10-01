@@ -1,6 +1,11 @@
 const Conversation = require("../models/Conversation");
+const User = require("../models/User");
 
-// Create or get conversation
+// =====================================================
+// CREATE OR GET CONVERSATION
+// ONLY FRIENDS CAN CREATE/GET CONVERSATION
+// =====================================================
+
 const createOrGetConversation = async (req, res) => {
   try {
     const currentUserId = req.userId;
@@ -12,35 +17,94 @@ const createOrGetConversation = async (req, res) => {
       });
     }
 
-    if (currentUserId.toString() === userId.toString()) {
+    if (
+      currentUserId.toString() ===
+      userId.toString()
+    ) {
       return res.status(400).json({
         message: "You cannot chat with yourself",
       });
     }
 
-    // Check if conversation already exists
-    let conversation = await Conversation.findOne({
-      participants: {
-        $all: [currentUserId, userId],
-      },
-    }).populate(
-      "participants",
-      "-password"
-    );
+    // =================================================
+    // CHECK CURRENT USER
+    // =================================================
 
-    // If conversation doesn't exist, create it
-    if (!conversation) {
-      conversation = await Conversation.create({
-        participants: [
-          currentUserId,
-          userId,
-        ],
+    const currentUser =
+      await User.findById(currentUserId);
+
+    if (!currentUser) {
+      return res.status(404).json({
+        message: "Current user not found",
       });
+    }
 
-      conversation = await conversation.populate(
+    // =================================================
+    // CHECK FRIENDSHIP
+    // =================================================
+
+    const areFriends =
+      currentUser.friends.some(
+        (friendId) =>
+          friendId.toString() ===
+          userId.toString()
+      );
+
+    if (!areFriends) {
+      return res.status(403).json({
+        message:
+          "You can only chat with your friends",
+      });
+    }
+
+    // =================================================
+    // CHECK TARGET USER
+    // =================================================
+
+    const targetUser =
+      await User.findById(userId);
+
+    if (!targetUser) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // =================================================
+    // FIND EXISTING CONVERSATION
+    // =================================================
+
+    let conversation =
+      await Conversation.findOne({
+        participants: {
+          $all: [
+            currentUserId,
+            userId,
+          ],
+        },
+      }).populate(
         "participants",
         "-password"
       );
+
+    // =================================================
+    // CREATE IF NOT EXISTS
+    // =================================================
+
+    if (!conversation) {
+      conversation =
+        await Conversation.create({
+          participants: [
+            currentUserId,
+            userId,
+          ],
+        });
+
+      conversation =
+        await conversation.populate(
+          "participants",
+          "-password"
+        );
     }
 
     res.status(200).json({

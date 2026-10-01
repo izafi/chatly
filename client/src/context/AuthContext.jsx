@@ -1,62 +1,142 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+
 import api from "../services/api";
 
-const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+const AuthContext =
+  createContext();
 
-  // Get current logged-in user
-  const getCurrentUser = async () => {
-    try {
-      const response = await api.get("/auth/me");
-      setUser(response.data.user);
-    } catch (error) {
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // Register
-  const register = async (name, email, password) => {
-    const response = await api.post("/auth/register", {
-      name,
-      email,
-      password,
-    });
+export const AuthProvider = ({
+  children,
+}) => {
+  const [user, setUser] =
+    useState(null);
 
-    setUser(response.data.user);
+  const [loading, setLoading] =
+    useState(true);
+
+
+  // ===================================================
+  // GET CURRENT USER
+  // ===================================================
+
+  const getCurrentUser =
+    async () => {
+      try {
+        const response =
+          await api.get(
+            "/auth/me"
+          );
+
+        setUser(
+          response.data.user
+        );
+      } catch (error) {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+
+  // ===================================================
+  // REGISTER
+  // ===================================================
+
+  const register = async (
+    name,
+    username,
+    email,
+    password
+  ) => {
+    const response =
+      await api.post(
+        "/auth/register",
+        {
+          name,
+          username,
+          email,
+          password,
+        }
+      );
+
+    setUser(
+      response.data.user
+    );
 
     return response.data;
   };
 
-  // Login
-  const login = async (email, password) => {
-    const response = await api.post("/auth/login", {
-      email,
-      password,
-    });
 
-    setUser(response.data.user);
+  // ===================================================
+  // LOGIN
+  // ===================================================
+
+  const login = async (
+    email,
+    password
+  ) => {
+    const response =
+      await api.post(
+        "/auth/login",
+        {
+          email,
+          password,
+        }
+      );
+
+    setUser(
+      response.data.user
+    );
 
     return response.data;
   };
 
-  // Logout
-  const logout = async () => {
-    try {
-      await api.post("/auth/logout");
-      setUser(null);
-    } catch (error) {
-      console.error(error);
-    }
+
+  // ===================================================
+  // LOGOUT
+  // ===================================================
+
+  const logout =
+    async () => {
+      try {
+        await api.post(
+          "/auth/logout"
+        );
+
+        setUser(null);
+      } catch (error) {
+        console.error(
+          "LOGOUT ERROR:",
+          error
+        );
+      }
+    };
+
+
+  // ===================================================
+  // UPDATE USER
+  // ===================================================
+
+  const updateUser = (
+    updatedUser
+  ) => {
+    setUser(
+      updatedUser
+    );
   };
+
 
   useEffect(() => {
     getCurrentUser();
   }, []);
+
 
   return (
     <AuthContext.Provider
@@ -66,6 +146,7 @@ export const AuthProvider = ({ children }) => {
         register,
         login,
         logout,
+        updateUser,
       }}
     >
       {children}
@@ -73,6 +154,8 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+
+export const useAuth = () =>
+  useContext(
+    AuthContext
+  );

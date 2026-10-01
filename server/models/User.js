@@ -8,6 +8,16 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      minlength: 3,
+      maxlength: 30,
+    },
+
     email: {
       type: String,
       required: true,
@@ -30,7 +40,15 @@ const userSchema = new mongoose.Schema(
     bio: {
       type: String,
       default: "Hey! I'm using Chatly.",
+      maxlength: 150,
     },
+
+    friends: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
 
     isOnline: {
       type: Boolean,

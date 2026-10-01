@@ -1,29 +1,74 @@
-const Message = require("../models/Message");
-const Conversation = require("../models/Conversation");
+const Message =
+  require("../models/Message");
 
-// Send message
-const sendMessage = async (req, res) => {
+const Conversation =
+  require("../models/Conversation");
+
+const User =
+  require("../models/User");
+
+
+// =====================================================
+// CHECK FRIENDSHIP
+// =====================================================
+
+const checkFriendship = async (
+  userId,
+  otherUserId
+) => {
+  const user =
+    await User.findById(
+      userId
+    );
+
+  if (!user) {
+    return false;
+  }
+
+  return user.friends.some(
+    (friendId) =>
+      friendId.toString() ===
+      otherUserId.toString()
+  );
+};
+
+
+// =====================================================
+// SEND MESSAGE
+// =====================================================
+
+const sendMessage = async (
+  req,
+  res
+) => {
   try {
-    const { conversationId, text } = req.body;
+    const {
+      conversationId,
+      text,
+    } = req.body;
 
-    if (!conversationId || !text) {
+    if (
+      !conversationId ||
+      !text?.trim()
+    ) {
       return res.status(400).json({
-        message: "Conversation ID and message are required",
+        message:
+          "Conversation ID and message are required",
       });
     }
 
-    // Check conversation
-    const conversation = await Conversation.findById(
-      conversationId
-    );
+    const conversation =
+      await Conversation.findById(
+        conversationId
+      );
 
     if (!conversation) {
       return res.status(404).json({
-        message: "Conversation not found",
+        message:
+          "Conversation not found",
       });
     }
 
-    // Check if current user belongs to conversation
     const isParticipant =
       conversation.participants.some(
         (participant) =>
@@ -33,18 +78,52 @@ const sendMessage = async (req, res) => {
 
     if (!isParticipant) {
       return res.status(403).json({
-        message: "You are not a participant",
+        message:
+          "You are not a participant",
       });
     }
 
-    // Create message
-    const message = await Message.create({
-      conversation: conversationId,
-      sender: req.userId,
-      text,
-    });
+    // Find other participant
+    const otherParticipant =
+      conversation.participants.find(
+        (participant) =>
+          participant.toString() !==
+          req.userId.toString()
+      );
 
-    // Populate sender
+    if (!otherParticipant) {
+      return res.status(400).json({
+        message:
+          "Invalid conversation",
+      });
+    }
+
+    // Check friendship
+    const areFriends =
+      await checkFriendship(
+        req.userId,
+        otherParticipant
+      );
+
+    if (!areFriends) {
+      return res.status(403).json({
+        message:
+          "You can only message your friends",
+      });
+    }
+
+    const message =
+      await Message.create({
+        conversation:
+          conversationId,
+
+        sender:
+          req.userId,
+
+        text:
+          text.trim(),
+      });
+
     await message.populate(
       "sender",
       "-password"
@@ -54,7 +133,10 @@ const sendMessage = async (req, res) => {
       message,
     });
   } catch (error) {
-    console.error("SEND MESSAGE ERROR:", error);
+    console.error(
+      "SEND MESSAGE ERROR:",
+      error
+    );
 
     res.status(500).json({
       message: "Server error",
@@ -63,23 +145,31 @@ const sendMessage = async (req, res) => {
 };
 
 
-// Get messages
-const getMessages = async (req, res) => {
-  try {
-    const { conversationId } = req.params;
+// =====================================================
+// GET MESSAGES
+// =====================================================
 
-    // Check conversation
-    const conversation = await Conversation.findById(
-      conversationId
-    );
+const getMessages = async (
+  req,
+  res
+) => {
+  try {
+    const {
+      conversationId,
+    } = req.params;
+
+    const conversation =
+      await Conversation.findById(
+        conversationId
+      );
 
     if (!conversation) {
       return res.status(404).json({
-        message: "Conversation not found",
+        message:
+          "Conversation not found",
       });
     }
 
-    // Check participant
     const isParticipant =
       conversation.participants.some(
         (participant) =>
@@ -89,21 +179,60 @@ const getMessages = async (req, res) => {
 
     if (!isParticipant) {
       return res.status(403).json({
-        message: "You are not a participant",
+        message:
+          "You are not a participant",
       });
     }
 
-    const messages = await Message.find({
-      conversation: conversationId,
-    })
-      .populate("sender", "-password")
-      .sort({ createdAt: 1 });
+    const otherParticipant =
+      conversation.participants.find(
+        (participant) =>
+          participant.toString() !==
+          req.userId.toString()
+      );
+
+    if (!otherParticipant) {
+      return res.status(400).json({
+        message:
+          "Invalid conversation",
+      });
+    }
+
+    // Check friendship
+    const areFriends =
+      await checkFriendship(
+        req.userId,
+        otherParticipant
+      );
+
+    if (!areFriends) {
+      return res.status(403).json({
+        message:
+          "You can only access chats with your friends",
+      });
+    }
+
+    const messages =
+      await Message.find({
+        conversation:
+          conversationId,
+      })
+        .populate(
+          "sender",
+          "-password"
+        )
+        .sort({
+          createdAt: 1,
+        });
 
     res.status(200).json({
       messages,
     });
   } catch (error) {
-    console.error("GET MESSAGES ERROR:", error);
+    console.error(
+      "GET MESSAGES ERROR:",
+      error
+    );
 
     res.status(500).json({
       message: "Server error",
